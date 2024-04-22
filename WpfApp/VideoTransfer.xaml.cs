@@ -16,14 +16,14 @@ using WpfApp.ViewModel;
 namespace WpfApp
 {
     /// <summary>
-    /// NewWindow.xaml 的交互逻辑
+    /// VideoTransfer.xaml 的交互逻辑
     /// </summary>
-    public partial class NewWindow : Window
+    public partial class VideoTransfer : Window
     {
-        public NewWindow()
+        public VideoTransfer()
         {
             InitializeComponent();
-            this.DataContext = new NewWindowViewModel();
+            this.DataContext = new VideoTransferViewModel();
         }
     }
 }
