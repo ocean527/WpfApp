@@ -5,32 +5,30 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:WpfApp"
         mc:Ignorable="d"
-        Title="VideoTransfer" Height="400" Width="600" WindowStartupLocation="CenterScreen">
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="80"></RowDefinition>
-            <RowDefinition Height="80"></RowDefinition>
-            <RowDefinition Height="80"></RowDefinition>
-            <RowDefinition Height="auto"></RowDefinition>
-        </Grid.RowDefinitions>
-        <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+        Title="视频转换" Height="440" Width="600" WindowStartupLocation="CenterScreen">
+    <StackPanel>
+        <StackPanel Margin="0 20" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
             <TextBox Text="{Binding VideoPath}" Height="30" Width="250" VerticalContentAlignment="Center"></TextBox>
-            <Button Width="60" Content="选择视频" Command="{Binding ChooseVideoCommand}"></Button>
+            <Button Width="80" Content="选择绿幕视频" Command="{Binding ChooseVideoCommand}"></Button>
         </StackPanel>
-        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <StackPanel Margin="0 20" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+            <TextBox Text="{Binding BackgroudImagePath}" Height="30" Width="250" VerticalContentAlignment="Center"></TextBox>
+            <Button Width="80" Content="选择背景图片" Command="{Binding ChooseBackgroudImageCommand}"></Button>
+        </StackPanel>
+        <StackPanel Margin="0 20" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
             <TextBox Text="{Binding AdImagePath}" Height="30" Width="250" VerticalContentAlignment="Center"></TextBox>
             <Button Width="80" Content="选择广告图片" Command="{Binding ChooseAdImageCommand}"></Button>
         </StackPanel>
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <StackPanel Margin="0 20" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
             <TextBlock Width="60"  VerticalAlignment="Center">广告位颜色</TextBlock>
             <ComboBox ItemsSource="{Binding AdColorSource}" SelectedItem="{Binding SelectLocation}" SelectedIndex="8"
                       StaysOpenOnEdit="True" VerticalAlignment="Center" VerticalContentAlignment="Center"
                       Width="60" Height="30" Margin="20,10" DisplayMemberPath="ColorName" SelectedValuePath="ColorName">
             </ComboBox>
         </StackPanel>
-        <StackPanel Grid.Row="3" Orientation="Vertical">
+        <StackPanel Orientation="Vertical">
             <Button Content="转换" Width="100" Height="30" Margin="0 20" Command="{Binding TransferCommand}" IsEnabled="{Binding IsValid}"/>
             <TextBlock Text="{Binding RunStatus}" Foreground="Red" HorizontalAlignment="Center" ></TextBlock>
         </StackPanel>
-    </Grid>
+    </StackPanel>
 </Window>

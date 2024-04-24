@@ -39,6 +39,13 @@ namespace WpfApp.ViewModel
             set { videoPath = value; this.RaisePropertyChanged("VideoPath"); }
         }
 
+        private string backgroudImagePath = string.Empty;
+        public string BackgroudImagePath
+        { 
+            get => backgroudImagePath;
+            set { backgroudImagePath = value; this.RaisePropertyChanged("BackgroudImagePath"); }
+        }
+
         private string adImagePath = string .Empty;
         public string AdImagePath
         {
@@ -63,8 +70,8 @@ namespace WpfApp.ViewModel
         private string runStatus = string.Empty;
         public string RunStatus
         { 
-            get{ return runStatus; }
-            set {  runStatus = value; this.RaisePropertyChanged("RunStatus"); }
+            get { return runStatus; }
+            set { runStatus = value; this.RaisePropertyChanged("RunStatus"); }
         }
 
         private bool isValid = true;
@@ -114,21 +121,30 @@ namespace WpfApp.ViewModel
                     {
                         try
                         {
-                            this.IsValid = false;
-                            ShowRunStatus("正在抽取视频帧...");
-                            string extractDir = _ExtractVideo(this.VideoPath);
+                            //ShowRunStatus("正在抽取视频帧...");
+                            //string extractDir = _ExtractVideo(this.VideoPath);
 
-                            ShowRunStatus("正在替换广告图片...");
-                            string swapImageDir = _SwapVideoAdImage(extractDir, this.SelectLocation);
+                            //ShowRunStatus("正在替换广告图片...");
+                            //string swapImageDir = _SwapVideoAdImage(extractDir, this.SelectLocation);
 
-                            ShowRunStatus("正在合成视频");
-                            _ComposeVideo(swapImageDir);
+                            //ShowRunStatus("正在合成视频...");
+                            //_ComposeVideo(swapImageDir);
 
-                            ShowRunStatus("转换完毕");
+                            Task.Factory.StartNew(() =>
+                            {
+                                ShowRunStatus("正在转换中...", false);
+                                var videoInfo = new FileInfo(VideoPath);
+                                string videoName = videoInfo.Name.Replace(videoInfo.Extension, "");
+                                string newVideoPath = AppDomain.CurrentDomain.BaseDirectory + "\\swap\\" + "\\" + videoName + ".mp4";
+                                SwapGreenBackground(VideoPath, AdImagePath, BackgroudImagePath, newVideoPath);
+                                ShowRunStatus("转换完毕", true);
+                            });
                         }
                         catch (Exception ex)
                         {
-                            ShowRunStatus("转换出错：" + ex.Message);
+                            Debug.WriteLine(ex.StackTrace);
+                            ShowRunStatus("转换出错：" + ex.Message, true);
+                            
                         }
                         finally
                         { 
@@ -140,13 +156,13 @@ namespace WpfApp.ViewModel
             }
         }
 
-        private void ShowRunStatus(string status)
+        private void ShowRunStatus(string status, bool IsEnable)
         {
             Dispatcher dispatcher = Dispatcher.CurrentDispatcher;
-            Task.Factory.StartNew(() => {
-                dispatcher.Invoke(() => {
-                    this.RunStatus = status;
-                });
+ 
+            dispatcher.Invoke(() => {
+                this.RunStatus = status;
+                this.IsValid = IsEnable;
             });
         }
 
@@ -171,6 +187,30 @@ namespace WpfApp.ViewModel
                     });
                 }
                 return chooseVideoCommand;
+            }
+        }
+
+        private RelayCommand<object> chooseBackgroudImageCommand = null;
+        public RelayCommand<object> ChooseBackgroudImageCommand
+        {
+            get
+            {
+                if (chooseBackgroudImageCommand == null)
+                {
+                    chooseBackgroudImageCommand = new RelayCommand<object>((o) =>
+                    {
+                        var openFileDialog = new OpenFileDialog()
+                        {
+                            Filter = "图片文件|*.png|*.jpg|"
+                        };
+                        var res = openFileDialog.ShowDialog();
+                        if (res == true)
+                        {
+                            this.BackgroudImagePath = openFileDialog.FileName;
+                        }
+                    });
+                }
+                return chooseBackgroudImageCommand;
             }
         }
 
@@ -203,10 +243,11 @@ namespace WpfApp.ViewModel
             var videoInfo = new FileInfo(videoPath);
             string videoName = videoInfo.Name.Replace(videoInfo.Extension, "");
             string extractDir = AppDomain.CurrentDomain.BaseDirectory + "\\extract\\" + videoName;
-            if (!Directory.Exists(extractDir))
+            if (Directory.Exists(extractDir))
             { 
-                Directory.CreateDirectory(extractDir);
+                Directory.Delete(extractDir, true);
             }
+            Directory.CreateDirectory(extractDir);
             string extractPath = extractDir + "\\frame_%05d.jpg";
             RunFFmpegCommand($"-i {videoPath} -r 24 -f image2 {extractPath}");
             return extractDir;
@@ -217,14 +258,15 @@ namespace WpfApp.ViewModel
             DirectoryInfo imgDir = new DirectoryInfo(imageDir);
             FileInfo[] images = imgDir.GetFiles("*.jpg");
             string newImgDir = AppDomain.CurrentDomain.BaseDirectory + "\\swap\\" + imgDir.Name;
-            if (!Directory.Exists(newImgDir))
+            if (Directory.Exists(newImgDir))
             {
-                Directory.CreateDirectory(newImgDir);
+                Directory.Delete(newImgDir, true);
             }
+            Directory.CreateDirectory(newImgDir);
             foreach (FileInfo img in images)
             {
                 string imgPath = img.FullName;
-                Bitmap newImg = _ShowHsvProcess(imgPath, color.H_min, color.H_max, color.S_min, color.S_max, color.V_min, color.V_max);
+                Bitmap newImg = _ShowHsvProcess(imgPath, color.H_min, color.H_max, color.S_min, color.S_max, color.V_min, color.V_max, this.AdImagePath);
                 string newImgPath = newImgDir + "\\" + img.Name;
                 newImg.Save(newImgPath, ImageFormat.Jpeg);
             }
@@ -237,21 +279,21 @@ namespace WpfApp.ViewModel
             string videoName = imageDirInfo.Name;
             string imagesFilePath = AppDomain.CurrentDomain.BaseDirectory + "\\swap\\" + videoName + "\\frame_%05d.jpg";
             string outputVideoPath = AppDomain.CurrentDomain.BaseDirectory + "\\output\\" + videoName + ".mp4";
-            RunFFmpegCommand($"-f image2 -framerate 24 -i -y {imagesFilePath} {outputVideoPath}");
+            RunFFmpegCommand($"-y -f image2 -framerate 24 -i {imagesFilePath} {outputVideoPath}");
         }
 
-        private Bitmap _ShowHsvProcess(string path, int hMin, int hMax, int sMin, int sMax, int vMin, int vMax)
+        private Bitmap _ShowHsvProcess(string path, int hMin, int hMax, int sMin, int sMax, int vMin, int vMax, string adImagePath)
         {
             Mat src = new Mat(path, ImreadModes.AnyColor);
             Mat hsv = new Mat();
+            Mat adImage = new Mat(adImagePath, ImreadModes.AnyColor);
             Cv2.CvtColor(src, hsv, ColorConversionCodes.BGR2HSV);       //转化为HSV
 
             Mat dst = new Mat();
             Scalar scL = new Scalar(hMin, sMin, vMin);
             Scalar scH = new Scalar(hMax, sMax, vMax);
             Cv2.InRange(hsv, scL, scH, dst);                            //获取HSV处理图片
-            var kernel = Cv2.GetStructuringElement(MorphShapes.Rect, new OpenCvSharp.Size(20, 20),
-               new OpenCvSharp.Point(-1, -1));
+            var kernel = Cv2.GetStructuringElement(MorphShapes.Rect, new OpenCvSharp.Size(20, 20), new OpenCvSharp.Point(-1, -1));
             Cv2.Threshold(dst, dst, 0, 255, ThresholdTypes.Binary);         //二值化
             Cv2.Dilate(dst, dst, kernel);                                   //膨胀
             Cv2.Erode(dst, dst, kernel);                                    //腐蚀
@@ -263,10 +305,8 @@ namespace WpfApp.ViewModel
                 foreach (var rect in boxes)
                 {
                     //Cv2.Rectangle(imgTar, new OpenCvSharp.Point(rect.X, rect.Y), new OpenCvSharp.Point(rect.X + rect.Width, rect.Y + rect.Height), new OpenCvSharp.Scalar(0, 0, 255), 1);
-
-                    string adImgPath = AppDomain.CurrentDomain.BaseDirectory + "\\tt.png";
-                    
-                    ImageOverlapping(imgTar, new Mat(adImgPath, ImreadModes.AnyColor), rect.X, rect.Y);
+                    Cv2.Resize(adImage, adImage, new OpenCvSharp.Size(rect.Width, rect.Height));
+                    ImageOverlapping(imgTar, adImage, rect.X, rect.Y);
                 }
                 Bitmap bitmap = BitmapConverter.ToBitmap(imgTar);
                 return bitmap;
@@ -276,6 +316,33 @@ namespace WpfApp.ViewModel
                 Bitmap bitmap = BitmapConverter.ToBitmap(src);
                 return bitmap;
             }
+        }
+
+        private OpenCvSharp.Rect _ShowHsvProcess2(Mat src)
+        {
+            Mat hsv = new Mat();
+            Cv2.CvtColor(src, hsv, ColorConversionCodes.BGR2HSV);       //转化为HSV
+
+            Mat dst = new Mat();
+            Scalar scL = new Scalar(100, 43, 46);
+            Scalar scH = new Scalar(124, 255, 255);
+            Cv2.InRange(hsv, scL, scH, dst);                            //获取HSV处理图片
+            var kernel = Cv2.GetStructuringElement(MorphShapes.Rect, new OpenCvSharp.Size(20, 20), new OpenCvSharp.Point(-1, -1));
+            Cv2.Threshold(dst, dst, 0, 255, ThresholdTypes.Binary);         //二值化
+            Cv2.Dilate(dst, dst, kernel);                                   //膨胀
+            Cv2.Erode(dst, dst, kernel);                                    //腐蚀
+            Cv2.FindContours(dst, out OpenCvSharp.Point[][] contours, out HierarchyIndex[] hierarchy, RetrievalModes.External, ContourApproximationModes.ApproxSimple, null);
+            if (contours.Length > 0)
+            {
+                var boxes = contours.Select(Cv2.BoundingRect).Where(w => w.Height >= 10 && w.Width > 10);
+                var imgTar = src.Clone();
+                foreach (var rect in boxes)
+                {
+                    return rect;
+                }
+            }
+                
+            throw new Exception("找不到广告位");
         }
 
         public Bitmap ImageOverlapping(Bitmap background, Bitmap fontground, int x, int y)
@@ -304,6 +371,129 @@ namespace WpfApp.ViewModel
             Mat matRectInBackground = new Mat(matBackground, rect);
             matFront.CopyTo(matRectInBackground);
             return matBackground;
+        }
+
+        public Mat ImageUpscale(Mat src, OpenCvSharp.Size size, MatType type, OpenCvSharp.Rect pos)
+        {
+            Mat blackMat = new Mat(size, type, Scalar.Black);
+            OpenCvSharp.Rect roi = new OpenCvSharp.Rect(pos.X, pos.Y, src.Width, src.Height);
+            Mat matRectInBackground = new Mat(blackMat, roi);
+            //Cv2.ImShow("000003", src);
+            src.CopyTo(matRectInBackground);
+            //Cv2.ImShow("000004", blackMat);
+            return blackMat;
+        }
+
+        private void SwapGreenBackground(string greenBackgroundVideoPath, string adImagePath, string swapbackgroundImagePath, string outputPath)
+        {
+            using (VideoCapture videoCapture = new VideoCapture(greenBackgroundVideoPath))
+            using (Mat frameMat = new Mat())
+            using (Mat mat_bg = Cv2.ImRead(swapbackgroundImagePath))
+            using (Mat adimg_bg = Cv2.ImRead(adImagePath))
+            using (VideoWriter videoWriter = new VideoWriter(outputPath, FourCC.MPG4, videoCapture.Fps, new OpenCvSharp.Size(videoCapture.FrameWidth, videoCapture.FrameHeight), true))
+            {
+                videoCapture.PosFrames = 0;
+                while (true)
+                {
+                    if (!videoCapture.Read(frameMat))
+                    {
+                        break;
+                    }
+
+                    OpenCvSharp.Rect adPositionRect = _ShowHsvProcess2(frameMat);  //找出蓝色广告位的位置
+                    //扣除广告位蓝幕
+                    RemoveImageScreen(frameMat,
+                        p =>
+                        {
+                            int max = Math.Max(p.Item0, Math.Max(p.Item1, p.Item2));
+                            if (max == p.Item0 && p.Item0 > 40)  //蓝幕
+                                return true;
+                            return false;
+                        });
+
+                    //广告图缩放
+                    Cv2.Resize(adimg_bg, adimg_bg, new OpenCvSharp.Size(adPositionRect.Width, adPositionRect.Height));
+                    var adImageUpscale = ImageUpscale(adimg_bg, frameMat.Size(), frameMat.Type(), adPositionRect);
+                    
+                    var adImageUpscale_clone = adImageUpscale.Clone();
+                    //替换广告位图片
+                    MergeImage(adImageUpscale_clone, frameMat,
+                        p =>
+                        {
+                            if (p == new Vec3b(0, 0, 0))
+                            {
+                                return false;
+                            }
+                            return true;
+                        });
+
+                    //扣除绿幕
+                    RemoveImageScreen(adImageUpscale_clone,
+                        p =>
+                        {
+                            int max = Math.Max(p.Item0, Math.Max(p.Item1, p.Item2));
+                            if (max == p.Item1 && p.Item1 > 100)  //绿幕
+                                return true;
+                            return false;
+                        });
+                    var bg_clone = mat_bg.Clone();
+
+                    //Cv2.ImShow("press any key to quit", adImageUpscale_clone);
+                    //替换背景
+                    MergeImage(bg_clone, adImageUpscale_clone,
+                        p =>
+                        {
+                            if (p == new Vec3b(0, 0, 0))
+                            {
+                                return false;
+                            }
+                            return true;
+                        });
+                    //Cv2.ImShow("press any key to quit", adImageUpscale);
+                    //if (Cv2.WaitKey(1) > 0)
+                    //{
+                    //    break;
+                    //}
+
+                    videoWriter.Write(bg_clone);
+                }
+            }
+        }
+
+        private static unsafe void RemoveImageScreen(Mat src, Func<Vec3b, bool> func)
+        {
+            Vec3b* start = (Vec3b*)src.DataStart;
+            Vec3b* end = (Vec3b*)src.DataEnd;
+            for (Vec3b* p = start; p <= end; p++)
+            {
+                if (func(*p))
+                {
+                    *p = new Vec3b(0, 0, 0);
+                }
+            }
+        }
+
+        private static unsafe void MergeImage(Mat bg, Mat src, Func<Vec3b, bool> func)
+        {
+            Cv2.Resize(bg, bg, src.Size());
+            Vec3b* bg_pointer = (Vec3b*)bg.DataStart;
+            Vec3b* start = (Vec3b*)src.DataStart;
+            Vec3b* end = (Vec3b*)src.DataEnd;
+            for (Vec3b* p = start; p <= end; p++, bg_pointer++)
+            {
+                *bg_pointer = func(*p) ? *p : *bg_pointer;
+            }
+        }
+
+        private static unsafe void MergeAdImage(Mat bg, Mat src, OpenCvSharp.Rect adPosition, Func<Vec3b, bool> func)
+        {
+            Vec3b* src_pointer = (Vec3b*)src.DataStart;
+            Vec3b* start = (Vec3b*)src.DataStart;
+            Vec3b* end = (Vec3b*)src.DataEnd;
+            for (Vec3b* p = start; p <= end; p++, src_pointer++)
+            {
+                *src_pointer = func(*p) ? *p : *src_pointer;
+            }
         }
 
         public static void RunFFmpegCommand(string commandStr)
