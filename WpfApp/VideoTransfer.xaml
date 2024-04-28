@@ -3,32 +3,76 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:picker="clr-namespace:ag.WPF.ColorPicker;assembly=ag.WPF.ColorPicker"
+        xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
         xmlns:local="clr-namespace:WpfApp"
         mc:Ignorable="d"
-        Title="视频转换" Height="440" Width="600" WindowStartupLocation="CenterScreen">
-    <StackPanel>
-        <StackPanel Margin="0 20" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-            <TextBox Text="{Binding VideoPath}" Height="30" Width="250" VerticalContentAlignment="Center"></TextBox>
-            <Button Width="80" Content="选择绿幕视频" Command="{Binding ChooseVideoCommand}"></Button>
+        Title="视频转换" Height="700" Width="800" WindowStartupLocation="CenterScreen">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition></ColumnDefinition>
+            <ColumnDefinition></ColumnDefinition>
+        </Grid.ColumnDefinitions>
+        <Border Grid.Column="0" BorderBrush="LightBlue" BorderThickness="0,0,1,0">
+            <StackPanel>
+                <Image Source="{Binding PreviewImage}" Width="380" Height="380" Margin="10"></Image>
+                <Image Source="{Binding AdImagePath}" Width="250" Height="250" Margin="10"></Image>
+            </StackPanel>
+        </Border>
+        <StackPanel Grid.Column="1">
+            <StackPanel Margin="0 20" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBox Text="{Binding VideoPath}" Height="30" Width="250" VerticalContentAlignment="Center"></TextBox>
+                <Button Width="80" Content="选择绿幕视频" Command="{Binding ChooseVideoCommand}"></Button>
+            </StackPanel>
+            <StackPanel Margin="0 10" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock Text="视频背景颜色" Margin="0 0 10 0" VerticalAlignment="Center"></TextBlock>
+                <picker:ColorPicker Width="50">
+                    <i:Interaction.Triggers>
+                        <i:EventTrigger EventName="SelectedColorChanged">
+                            <!--<i:CallMethodAction MethodName="SelectedColorChanged" TargetObject="{Binding}"/>-->
+                            <i:InvokeCommandAction Command="{Binding ChooseVideoBackColorCommand}" CommandParameter="{Binding RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=picker:ColorPicker}}" />
+                        </i:EventTrigger>
+                    </i:Interaction.Triggers>
+                </picker:ColorPicker>
+                <CheckBox Content="扣除" Margin="10" IsChecked="{Binding IsRomoveVideoBgChecked}">
+                    <i:Interaction.Triggers>
+                        <i:EventTrigger EventName="Checked">
+                            <i:InvokeCommandAction Command="{Binding RemoveVideoBgCheckedCommand}" CommandParameter="{Binding RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=picker:ColorPicker}}" />
+                        </i:EventTrigger>
+                    </i:Interaction.Triggers>
+                </CheckBox>
+            </StackPanel>
+            <StackPanel Margin="0 10" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBox Text="{Binding BackgroudImagePath}" Height="30" Width="250" VerticalContentAlignment="Center"></TextBox>
+                <Button Width="80" Content="选择背景图片" Command="{Binding ChooseBackgroudImageCommand}"></Button>
+            </StackPanel>
+            <StackPanel Margin="0 10" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBox Text="{Binding AdImagePath}" Height="30" Width="250" VerticalContentAlignment="Center"></TextBox>
+                <Button Width="80" Content="选择广告图片" Command="{Binding ChooseAdImageCommand}"></Button>
+            </StackPanel>
+            <StackPanel Margin="0 10" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock Width="60"  VerticalAlignment="Center">广告位颜色</TextBlock>
+                <ComboBox ItemsSource="{Binding AdColorSource}" SelectedItem="{Binding SelectLocation}" SelectedIndex="8"
+                  StaysOpenOnEdit="True" VerticalAlignment="Center" VerticalContentAlignment="Center"
+                  Width="60" Height="30" Margin="20,10" DisplayMemberPath="ColorName" SelectedValuePath="ColorName">
+                </ComboBox>
+            </StackPanel>
+            <StackPanel Margin="0 10" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock Text="广告图背景颜色" Margin="0 0 10 0" VerticalAlignment="Center"></TextBlock>
+                <picker:ColorPicker Width="50">
+                    <i:Interaction.Triggers>
+                        <i:EventTrigger EventName="SelectedColorChanged">
+                            <!--<i:CallMethodAction MethodName="SelectedColorChanged" TargetObject="{Binding}"/>-->
+                            <i:InvokeCommandAction Command="{Binding ChooseAdBackColorCommand}" CommandParameter="{Binding RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=picker:ColorPicker}}" />
+                        </i:EventTrigger>
+                    </i:Interaction.Triggers>
+                </picker:ColorPicker>
+                <CheckBox Content="扣除" Margin="10" IsChecked="{Binding IsRomoveAdBgChecked}"/>
+            </StackPanel>
+            <StackPanel Orientation="Vertical">
+                <Button Content="转换" Width="100" Height="30" Margin="0 20" Command="{Binding TransferCommand}" IsEnabled="{Binding IsValid}"/>
+                <TextBlock Text="{Binding RunStatus}" Foreground="Red" HorizontalAlignment="Center" ></TextBlock>
+            </StackPanel>
         </StackPanel>
-        <StackPanel Margin="0 20" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-            <TextBox Text="{Binding BackgroudImagePath}" Height="30" Width="250" VerticalContentAlignment="Center"></TextBox>
-            <Button Width="80" Content="选择背景图片" Command="{Binding ChooseBackgroudImageCommand}"></Button>
-        </StackPanel>
-        <StackPanel Margin="0 20" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-            <TextBox Text="{Binding AdImagePath}" Height="30" Width="250" VerticalContentAlignment="Center"></TextBox>
-            <Button Width="80" Content="选择广告图片" Command="{Binding ChooseAdImageCommand}"></Button>
-        </StackPanel>
-        <StackPanel Margin="0 20" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-            <TextBlock Width="60"  VerticalAlignment="Center">广告位颜色</TextBlock>
-            <ComboBox ItemsSource="{Binding AdColorSource}" SelectedItem="{Binding SelectLocation}" SelectedIndex="8"
-                      StaysOpenOnEdit="True" VerticalAlignment="Center" VerticalContentAlignment="Center"
-                      Width="60" Height="30" Margin="20,10" DisplayMemberPath="ColorName" SelectedValuePath="ColorName">
-            </ComboBox>
-        </StackPanel>
-        <StackPanel Orientation="Vertical">
-            <Button Content="转换" Width="100" Height="30" Margin="0 20" Command="{Binding TransferCommand}" IsEnabled="{Binding IsValid}"/>
-            <TextBlock Text="{Binding RunStatus}" Foreground="Red" HorizontalAlignment="Center" ></TextBlock>
-        </StackPanel>
-    </StackPanel>
+    </Grid>
 </Window>
