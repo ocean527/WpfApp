@@ -15,8 +15,10 @@
         </Grid.ColumnDefinitions>
         <Border Grid.Column="0" BorderBrush="LightBlue" BorderThickness="0,0,1,0">
             <StackPanel>
+                <TextBlock Text="视频预览" Margin="0 0 10 0" VerticalAlignment="Center" HorizontalAlignment="Center"></TextBlock>
                 <Image Source="{Binding PreviewImage}" Width="380" Height="380" Margin="10"></Image>
-                <Image Source="{Binding PreviewAdImage}" Width="250" Height="250" Margin="10"></Image>
+                <TextBlock Text="广告图片" Margin="0 0 10 0" VerticalAlignment="Center" HorizontalAlignment="Center"></TextBlock>
+                <Image Source="{Binding PreviewAdImage}" Width="200" Height="200" Margin="10"></Image>
             </StackPanel>
         </Border>
         <StackPanel Grid.Column="1">
