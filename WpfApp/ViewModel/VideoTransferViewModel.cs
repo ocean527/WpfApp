@@ -24,6 +24,8 @@ using System.Windows.Media;
 using ag.WPF.ColorPicker;
 using Color = System.Windows.Media.Color;
 using OpenCvSharp.WpfExtensions;
+using System.Windows.Controls;
+using System.Net;
 
 namespace WpfApp.ViewModel
 {
@@ -45,12 +47,12 @@ namespace WpfApp.ViewModel
 
         private string backgroudImagePath = string.Empty;
         public string BackgroudImagePath
-        { 
+        {
             get => backgroudImagePath;
             set { backgroudImagePath = value; this.RaisePropertyChanged("BackgroudImagePath"); }
         }
 
-        private string adImagePath = string .Empty;
+        private string adImagePath = string.Empty;
         public string AdImagePath
         {
             get { return adImagePath; }
@@ -73,7 +75,7 @@ namespace WpfApp.ViewModel
 
         private string runStatus = string.Empty;
         public string RunStatus
-        { 
+        {
             get { return runStatus; }
             set { runStatus = value; this.RaisePropertyChanged("RunStatus"); }
         }
@@ -85,10 +87,17 @@ namespace WpfApp.ViewModel
             set { previewImage = value; this.RaisePropertyChanged("PreviewImage"); }
         }
 
+        private ImageSource previewAdImage;
+        public ImageSource PreviewAdImage
+        {
+            get { return previewAdImage; }
+            set { previewAdImage = value; this.RaisePropertyChanged("PreviewAdImage"); }
+        }
+
         private bool isValid = true;
         public bool IsValid
-        { 
-            get => isValid; 
+        {
+            get => isValid;
             set { isValid = value; this.RaisePropertyChanged("IsValid"); }
         }
 
@@ -108,16 +117,32 @@ namespace WpfApp.ViewModel
 
         private bool isRomoveVideoBgChecked;
         public bool IsRomoveVideoBgChecked
-        { 
+        {
             get { return isRomoveVideoBgChecked; }
-            set {  isRomoveVideoBgChecked = value; this.RaisePropertyChanged(nameof(IsRomoveVideoBgChecked)); }
+            set { isRomoveVideoBgChecked = value; this.RaisePropertyChanged(nameof(IsRomoveVideoBgChecked)); }
         }
 
         private bool isRomoveAdBgChecked;
         public bool IsRomoveAdBgChecked
-        { 
+        {
             get { return isRomoveAdBgChecked; }
             set { isRomoveAdBgChecked = value; this.RaisePropertyChanged(nameof(IsRomoveAdBgChecked)); }
+        }
+
+        public Mat FirstVideoFrame { get; set; }
+
+        private double removeVideoBgVol = 0;
+        public double RemoveVideoBgVol
+        {
+            get => removeVideoBgVol;
+            set { removeVideoBgVol = value; this.RaisePropertyChanged(nameof(RemoveVideoBgVol)); }
+        }
+
+        private double removeAdBgVol = 0;
+        public double RemoveAdBgVol
+        {
+            get => removeAdBgVol;
+            set { removeAdBgVol = value; this.RaisePropertyChanged(nameof(removeAdBgVol)); }
         }
 
         private ObservableCollection<HSVColorModel> adColorSource = null;
@@ -145,7 +170,7 @@ namespace WpfApp.ViewModel
             set { this.adColorSource = value; this.RaisePropertyChanged("AdColorSource"); }
         }
 
-        public VideoTransferViewModel() 
+        public VideoTransferViewModel()
         {
             this.SelectLocation = this.AdColorSource[8];
         }
@@ -172,23 +197,23 @@ namespace WpfApp.ViewModel
                                 //ShowRunStatus("正在合成视频...");
                                 //_ComposeVideo(swapImageDir);
 
-                            
+
                                 ShowRunStatus("正在转换中...", false);
                                 var videoInfo = new FileInfo(VideoPath);
                                 string videoName = videoInfo.Name.Replace(videoInfo.Extension, "");
                                 string newVideoPath = AppDomain.CurrentDomain.BaseDirectory + "\\swap\\" + "\\" + videoName + ".mp4";
                                 SwapGreenBackground(VideoPath, AdImagePath, BackgroudImagePath, newVideoPath);
                                 ShowRunStatus("转换完毕", true);
-                            
+
                             }
                             catch (Exception ex)
                             {
                                 Debug.WriteLine(ex.StackTrace);
                                 ShowRunStatus("转换出错：" + ex.Message, true);
-                            
+
                             }
                             finally
-                            { 
+                            {
                                 this.IsValid = true;
                             }
                         });
@@ -201,7 +226,7 @@ namespace WpfApp.ViewModel
         private void ShowRunStatus(string status, bool IsEnable)
         {
             Dispatcher dispatcher = Dispatcher.CurrentDispatcher;
- 
+
             dispatcher.Invoke(() => {
                 this.RunStatus = status;
                 this.IsValid = IsEnable;
@@ -225,8 +250,9 @@ namespace WpfApp.ViewModel
                         if (res == true)
                         {
                             this.VideoPath = openFileDialog.FileName;
-                            Mat frame = GetVideoFirstFrame(this.VideoPath);
-                            this.PreviewImage = MatToBitmapImage(frame);
+                            FirstVideoFrame = GetVideoFirstFrame(this.VideoPath);
+
+                            this.PreviewImage = MatToBitmapImage(FirstVideoFrame);
                         }
                     });
                 }
@@ -275,6 +301,7 @@ namespace WpfApp.ViewModel
                         if (res == true)
                         {
                             this.AdImagePath = openFileDialog.FileName;
+                            this.PreviewAdImage = LoadBitmapImageByPath(openFileDialog.FileName);
                         }
                     });
                 }
@@ -325,28 +352,165 @@ namespace WpfApp.ViewModel
                 {
                     removeVideoBgCheckedCommand = new RelayCommand<object>((o) =>
                     {
-                        if (VideoPath == string.Empty)
+                        var checkBox = o as CheckBox;
+                        if (checkBox.IsChecked == true)
                         {
-                            MessageBox.Show("请先选择视频文件");
-                            return;  
-                        }
-                        Mat preImage = ImageSourceToMat(PreviewImage); 
-                        RemoveImageScreen(preImage,
-                            p =>
+                            if (VideoPath == string.Empty)
                             {
-                                double diff = Math.Pow(p.Item0 - VideoBackgroundColor.B, 2) + Math.Pow(p.Item1 - VideoBackgroundColor.G, 2) + Math.Pow(p.Item2 - VideoBackgroundColor.R, 2);
-                                int threshold = 200;
-                                if (Math.Abs(p.Item0 - VideoBackgroundColor.B) < threshold && Math.Abs(p.Item1 - VideoBackgroundColor.G) < threshold && Math.Abs(p.Item2 - VideoBackgroundColor.R) < threshold)
-                                    return true;
-                                return false;
-                            });
-                        this.PreviewImage = MatToBitmapImage(preImage);
+                                MessageBox.Show("请先选择视频文件");
+                                checkBox.IsChecked = false;
+                                return;
+                            }
+
+                            Mat preImage = RemoveScreenBgColor(this.FirstVideoFrame, this.AdBackgroundColor, (int)removeVideoBgVol);
+                            this.PreviewImage = MatToBitmapImage(preImage);
+                        }
+                        else
+                        {
+                            this.PreviewImage = MatToBitmapImage(this.FirstVideoFrame);
+                        }
                     });
                 }
                 return removeVideoBgCheckedCommand;
             }
         }
 
+        private RelayCommand<object> removeVideoBgVolChangedCommand = null;
+        public RelayCommand<object> RemoveVideoBgVolChangedCommand
+        {
+            get
+            {
+                if (removeVideoBgVolChangedCommand == null)
+                {
+                    removeVideoBgVolChangedCommand = new RelayCommand<object>((o) =>
+                    {
+                        if (this.IsRomoveVideoBgChecked)
+                        {
+                            var slider = o as Slider;
+                            this.removeVideoBgVol = slider.Value;
+
+                            Mat preImage = RemoveScreenBgColor(this.FirstVideoFrame, VideoBackgroundColor, (int)removeVideoBgVol);
+                            this.PreviewImage = MatToBitmapImage(preImage);
+                        }
+                    });
+                }
+                return removeVideoBgVolChangedCommand;
+            }
+        }
+
+        private RelayCommand<object> removeAdBgCheckedCommand = null;
+        public RelayCommand<object> RemoveAdBgCheckedCommand
+        {
+            get
+            {
+                if (removeAdBgCheckedCommand == null)
+                {
+                    removeAdBgCheckedCommand = new RelayCommand<object>((o) =>
+                    {
+                        var checkBox = o as CheckBox;
+                        if (checkBox.IsChecked == true)
+                        {
+                            if (this.AdImagePath == string.Empty)
+                            {
+                                MessageBox.Show("请先选择广告图片");
+                                checkBox.IsChecked = false;
+                                return;
+                            }
+
+                            Mat adimg = RemoveScreenBgColor(new Mat(this.AdImagePath), this.AdBackgroundColor, (int)this.removeAdBgVol);
+                            this.PreviewAdImage = MatToBitmapImage(adimg);
+                        }
+                        else
+                        {
+                            this.PreviewAdImage = MatToBitmapImage(this.FirstVideoFrame);
+                        }
+                    });
+                }
+                return removeAdBgCheckedCommand;
+            }
+        }
+
+        private RelayCommand<object> removeAdBgVolChangedCommand = null;
+        public RelayCommand<object> RemoveAdBgVolChangedCommand
+        {
+            get
+            {
+                if (removeAdBgVolChangedCommand == null)
+                {
+                    removeAdBgVolChangedCommand = new RelayCommand<object>((o) =>
+                    {
+                        if (this.IsRomoveAdBgChecked)
+                        {
+                            var slider = o as Slider;
+                            this.removeAdBgVol = slider.Value;
+
+                            Mat adimg = RemoveScreenBgColor(new Mat(this.AdImagePath), this.AdBackgroundColor, (int)this.removeAdBgVol);
+                            this.PreviewAdImage = MatToBitmapImage(adimg);
+                        }
+                    });
+                }
+                return removeAdBgVolChangedCommand;
+            }
+        }
+
+        public Mat RemoveScreenBgColor(Mat srcImage, Color removeColor, int removeVol)
+        {
+            Mat srcClone = srcImage.Clone();
+            RemoveImageScreen(srcClone,
+                p =>
+                {
+                    double diff = Math.Sqrt(Math.Pow(p.Item0 - removeColor.B, 2) + Math.Pow(p.Item1 - removeColor.G, 2) + Math.Pow(p.Item2 - removeColor.R, 2));
+                    int threshold = removeVol;
+                    if (diff < threshold)
+                        return true;
+                    return false;
+                });
+            return srcClone;
+        }
+
+        private Mat MergeImages(Mat bg, Mat front)
+        {
+            var bg_clone = bg.Clone();
+            //替换背景
+            MergeImage(bg_clone, front,
+                p =>
+                {
+                    if (p == new Vec3b(0, 0, 0))
+                    {
+                        return false;
+                    }
+                    return true;
+                });
+            return bg_clone;
+        }
+
+        private BitmapImage LoadBitmapImageByPath(string path)
+        {
+            try
+            {
+                //文件不存在，返回空
+                if (!File.Exists(path))
+                {
+                    return null;
+                }
+                BitmapImage bi = new BitmapImage();
+                using (FileStream stream = new FileStream(path, FileMode.Open, FileAccess.Read))
+                {
+                    using (BinaryReader br = new BinaryReader(stream))
+                    {
+                        byte[] bytes = br.ReadBytes((int)stream.Length);
+                        bi.BeginInit();
+                        bi.StreamSource = new MemoryStream(bytes);
+                        bi.EndInit();
+                    }
+                }
+                return bi;
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
+        }
 
         public void SelectedColorChanged(object sender, RoutedPropertyChangedEventArgs<System.Windows.Media.Color> e)
         {
@@ -556,14 +720,7 @@ namespace WpfApp.ViewModel
                     }
 
                     //去除广告图片白色背景
-                    RemoveImageScreen(adimg_bg,
-                        p =>
-                        {
-                            //int max = Math.Max(p.Item0, Math.Max(p.Item1, p.Item2));
-                            if (p.Item0 > 250 && p.Item1 > 250 && p.Item2 > 250)  //白幕
-                                return true;
-                            return false;
-                        });
+                    Mat noAdBgImage = RemoveScreenBgColor(adimg_bg, this.AdBackgroundColor, (int)this.removeAdBgVol);
 
                     OpenCvSharp.Rect adPositionRect = _ShowHsvProcess2(frameMat);  //找出蓝色广告位的位置
                     //扣除广告位蓝幕
@@ -578,54 +735,31 @@ namespace WpfApp.ViewModel
 
                     //广告图缩放
                     //Cv2.Resize(adimg_bg, adimg_bg, new OpenCvSharp.Size(adPositionRect.Width, adPositionRect.Height));
-                    var adImageUpscale = ImageUpscale(adimg_bg, frameMat.Size(), frameMat.Type(), adPositionRect);
+                    var adImageUpscale = ImageUpscale(noAdBgImage, frameMat.Size(), frameMat.Type(), adPositionRect);
 
                     
                     //将广告图叠在背景图上
                     //Mat res = ImageOverlapping(frameMat, adimg_bg, adPositionRect.X, adPositionRect.Y);
 
                     var adImageUpscale_clone = adImageUpscale.Clone();
+
                     //替换广告位图片
-                    MergeImage(frameMat, adImageUpscale_clone,
-                        p =>
-                        {
-                            if (p == new Vec3b(0, 0, 0))
-                            {
-                                return false;
-                            }
-                            return true;
-                        });
+                    Mat mergeAdImage = MergeImages(frameMat, adImageUpscale_clone);
 
                     //扣除绿幕
-                    RemoveImageScreen(frameMat,
-                        p =>
-                        {
-                            int max = Math.Max(p.Item0, Math.Max(p.Item1, p.Item2));
-                            if (max == p.Item1 && p.Item1 > 100)  //绿幕
-                                return true;
-                            return false;
-                        });
+                    Mat noVideoBgImage = RemoveScreenBgColor(mergeAdImage, this.VideoBackgroundColor, (int)this.removeVideoBgVol);
+                    
                     var bg_clone = mat_bg.Clone();
-
-                    //Cv2.ImShow("press any key to quit", adImageUpscale_clone);
                     //替换背景
-                    MergeImage(bg_clone, frameMat,
-                        p =>
-                        {
-                            if (p == new Vec3b(0, 0, 0))
-                            {
-                                return false;
-                            }
-                            return true;
-                        });
+                    Mat mergeBgImage = MergeImages(bg_clone, noVideoBgImage);
                     //Cv2.ImShow("press any key to quit", adImageUpscale);
                     //if (Cv2.WaitKey(1) > 0)
                     //{
                     //    break;
                     //}
 
-                    this.PreviewImage = MatToBitmapImage(bg_clone);
-                    videoWriter.Write(bg_clone);
+                    this.PreviewImage = MatToBitmapImage(mergeBgImage);
+                    videoWriter.Write(mergeBgImage);
                 }
             }
         }
@@ -652,17 +786,6 @@ namespace WpfApp.ViewModel
             for (Vec3b* p = start; p <= end; p++, bg_pointer++)
             {
                 *bg_pointer = func(*p) ? *p : *bg_pointer;
-            }
-        }
-
-        private static unsafe void MergeAdImage(Mat bg, Mat src, OpenCvSharp.Rect adPosition, Func<Vec3b, bool> func)
-        {
-            Vec3b* src_pointer = (Vec3b*)src.DataStart;
-            Vec3b* start = (Vec3b*)src.DataStart;
-            Vec3b* end = (Vec3b*)src.DataEnd;
-            for (Vec3b* p = start; p <= end; p++, src_pointer++)
-            {
-                *src_pointer = func(*p) ? *p : *src_pointer;
             }
         }
 
